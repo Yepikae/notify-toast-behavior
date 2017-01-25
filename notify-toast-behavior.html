@@ -1,0 +1,304 @@
+<link rel="import" href="../../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+
+<script>
+    NotifyToastBehavior = {
+
+      properties: {
+
+        /**
+        * List on every notifications still active in the paper-toast.
+        * A notifications is an object with the following properties :
+        *    {
+        *       'text': {String}     _the_message_to_be_sent_,
+        *       'id':   {Number}     _the_id_of_the_notification_,
+        *       'elem': {DOMElement} _the_DOM_element_of_the_notification_
+        *    }
+        *
+        * @attribute _notifications
+        * @type Array
+        */
+        _notifications : {
+          type: Array,
+          notify: true,
+          value: function(){
+            return [];
+          }
+        },
+
+        /**
+        * Counter that gives the `_notifications` ids.
+        *
+        * @attribute _cid
+        * @type Number
+        */
+        _cid: {
+          type: Number,
+          notify: true,
+          value: 0
+        }
+
+      },
+
+      listeners: {},
+
+      /**
+      * Create and displays a notification in the `paper-toast#__notify_toast__`.
+      *
+      * @param {!required} text {String} The main message to display. Can contain HTML content, such as links.
+      * @param {!required} options {Object} The different options of the notification. Must be in the following format :
+      *     {
+      *       'color': {String} _the_main_color_of_the_notification_, // Must be in hex format. Default : #2196F3.
+      *       'timeout': {Number} _the_timeout_of_the_notification_display_,  // In ms. -1 means infinite display. Default : 3000.
+      *       'type': {String} _the_type_of_notification_ // 'Warning' 'Error' & 'Success' are predefined values that set the respective colors : Orange, Red & Green.
+      *     }
+      *
+      * @method notifyToast
+      */
+      notifyToast: function(text, options){
+        // Init options.
+        options = options || {};
+        var timeout = options.timeout || 3000;
+        var type = options.type || "Log";
+        var color = options.color || this._getColor(type);
+        var id = this._cid;
+        // Create the DOM element of the notification.
+        var elem  = this._createNotificationElement({
+          'text' : text,
+          'type' : type,
+          'color': color,
+          'id'   : id
+        });
+        // Push the new notification in `_notifications`.
+        this.push('_notifications', {
+          'text': text,
+          'id': id,
+          'element': elem
+        });
+        // Apply the timeout on the notification.
+        this._applyTimeout(id, timeout);
+        // Increase the id counter.
+        this.set('_cid', this._cid + 1);
+        // Append the notification to the paper-toast.
+        this.$.__notify_toast__.appendChild(elem);
+        // If the paper-toast is closed, opens it.
+        if(!this.$.__notify_toast__.opened) this.$.__notify_toast__.open();
+      },
+
+      /**
+      * If `timeout` is a strict positive number, set a timeout that closes a notification after `timeout` milliseconds.
+      * Calls `_onNotificationsChange`.
+      *
+      * @param {!required} id      {String} The id of the notification to timeout.
+      * @param {!required} timeout {Number} The number of milliseconds to wait before closing a notification. Must be > 0.
+      *
+      * @method _applyTimeout
+      */
+      _applyTimeout: function(id, timeout){
+        if(timeout > 0){
+          setTimeout(function(){
+            // Look for the nofitication with `id`.
+            // Then removes its DOM Element from the paper-toast.
+            // Alse removes the notification from `_notifications`.
+            // Finally, calls `_onNotificationsChange`.
+            for(var i = 0; i < this._notifications.length; i++){
+              if( this._notifications[i].id === id ){
+                this.$.__notify_toast__.removeChild(this._notifications[i].element);
+                this.splice('_notifications', i, 1);
+                i = this._notifications.length;
+                this._onNotificationsChange();
+              }
+            }
+          }.bind(this), timeout);
+        }
+      },
+
+
+
+
+      /**
+      * Returns a div containing a `icons:close` paper-icon. A click on the icon calls `_onDeleteNotificationClick`.
+      *
+      * @param {!required} data {Object} The required informations to create the icon. Must be in the following format :
+      *     {
+      *       'id': {Number} _the_id_of_the_notification_
+      *     }
+      *
+      * @method _createDeleteIconElement
+      */
+      _createDeleteIconElement: function(data){
+        // Create icon container
+        var td_icon = document.createElement('div');
+        td_icon.style.display= 'table-cell';
+        td_icon.style.width = '26px';
+        td_icon.style.padding = '5px';
+        td_icon.style.backgroundColor = 'rgba(255,255,255,0.87)';
+        td_icon.style.cursor = 'pointer';
+        // Create icon
+        var icon = document.createElement('iron-icon');
+        icon.set('icon', 'icons:close');
+        icon.style.color = 'red';
+        icon.addEventListener('click', function(e){
+          this._onDeleteNotificationClick(e, data.id);
+        }.bind(this));
+        // Return the whole thing
+        td_icon.appendChild(icon);
+        return td_icon;
+      },
+
+      /**
+      * Returns a div which aims to be the main DOM Element of a notification.
+      *
+      * @param {!required} data {Object} The required informations to create the div. Must be in the following format :
+      *     {
+      *       'color': {String} _the_main_color_of_the_notification_
+      *     }
+      *
+      * @method _createMainContainerElement
+      */
+      _createMainContainerElement: function(data){
+        var tab = document.createElement('div');
+        tab.style.display = 'table';
+        tab.style.width = '100%';
+        tab.style.border = 'solid 5px '+data.color;
+        tab.style.marginBottom = "10px";
+        tab.style.borderRadius = "2px";
+        tab.style.fontFamily = "'Roboto', sans-serif";
+        tab.style.fontSize = '14px';
+        return tab;
+      },
+
+      /**
+      * Returns the main DOM Element of a notification.
+      *
+      * @param {!required} data {Object} The required informations to create the div. Must be in the following format :
+      *     {
+      *       'color': {String} _the_main_color_of_the_notification_,
+      *       'id':    {Number} _the_id_of_the_notification_,
+      *       'text':  {String} _the_message_to_be_sent_,
+      *       'type':  {String} _the_type_of_notification_
+      *     }
+      *
+      * @method _createNotificationElement
+      */
+      _createNotificationElement: function(data){
+        var td_type = this._createTypeElement({
+          'type': data.type,
+          'color': data.color
+        });
+        var td_span = this._createTextElement({
+          'text': data.text,
+        });
+        var td_icon = this._createDeleteIconElement({
+          'id': data.id
+        });
+        var tab = this._createMainContainerElement({
+          'color': data.color
+        });
+        tab.appendChild(td_type);
+        tab.appendChild(td_span);
+        tab.appendChild(td_icon);
+        return tab;
+      },
+
+      /**
+      * Returns the div of the main message of a notification.
+      *
+      * @param {!required} data {Object} The required informations to create the div. Must be in the following format :
+      *     {
+      *       'text':  {String} _the_message_to_be_sent_
+      *     }
+      *
+      * @method _createTextElement
+      */
+      _createTextElement: function(data){
+        var td_span = document.createElement('div');
+        td_span.style.display = 'table-cell';
+        td_span.style.witdh = '100%';
+        td_span.style.backgroundColor = 'rgba(255,255,255,0.87)';
+        td_span.innerHTML = data.text;
+        td_span.style.padding = '5px';
+        td_span.style.color = 'black';
+        return td_span;
+      },
+
+      /**
+      * Returns the div of the type of a notification.
+      *
+      * @param {!required} data {Object} The required informations to create the div. Must be in the following format :
+      *     {
+      *       'color': {String} _the_main_color_of_the_notification_,
+      *       'type':  {String} _the_type_of_notification_
+      *     }
+      *
+      * @method _createTypeElement
+      */
+      _createTypeElement: function(data){
+        var td_type = document.createElement('div');
+        td_type.style.display = 'table-cell';
+        td_type.style.width = '100px';
+        td_type.style.padding = '5px';
+        td_type.innerHTML = data.type;
+        td_type.style.backgroundColor = data.color;
+        td_type.style.color = 'white';
+        return td_type;
+      },
+
+      /**
+      * Return a color, in hex format, according to the type of a notificaiton.
+      * Returns a *green* color for the type `Success`, *orange* for `Warning`, *red* for 'Error' & *blue* for the rest.
+      *
+      * @param {!required} type {String} The type of a notification.
+      *
+      * @method _getColor
+      */
+      _getColor: function(type){
+        switch(type){
+          case 'Success':
+            return '#8BC34A';
+          case 'Warning':
+            return '#FF9800';
+          case 'Error':
+            return '#F44336';
+          default:
+            return '#2196F3';
+        }
+      },
+
+      /**
+      * On click event on a `close` icon of a notificaiton. Deletes a notifcation (DOM Element + Object).
+      * Calls `_onNotificationsChange`.
+      *
+      * @param {!required} evt {Event} The click eventn.
+      * @param {!required} id  {Number} The id of the notification.
+      *
+      * @method _onDeleteNotificationClick
+      */
+      _onDeleteNotificationClick: function(evt, id){
+        // Look for the nofitication with `id`.
+        // Then removes its DOM Element from the paper-toast.
+        // Alse removes the notification from `_notifications`.
+        // Finally, calls `_onNotificationsChange`.
+        for(var i = 0; i < this._notifications.length; i++){
+          if( this._notifications[i].id === id ){
+            this.$.__notify_toast__.removeChild(this._notifications[i].element);
+            this.splice('_notifications', i, 1);
+            i = this._notifications.length;
+            this._onNotificationsChange();
+          }
+        }
+      },
+
+      /**
+      * Check if `_notifications` is empty. If so, closes the `paper-toast#__notify_toast__`.
+      *
+      * @method _onNotificationsChange
+      */
+      _onNotificationsChange: function(){
+        if(this._notifications.length === 0){
+          this.$.__notify_toast__.close();
+        }
+      }
+    };
+</script>
