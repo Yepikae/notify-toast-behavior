@@ -45,6 +45,7 @@
 
       /**
       * Create and displays a notification in the `paper-toast#__notify_toast__`.
+      * Returns the id of the toast.
       *
       * @param {!required} text {String} The main message to display. Can contain HTML content, such as links.
       * @param {!required} options {Object} The different options of the notification. Must be in the following format :
@@ -84,6 +85,19 @@
         this.$.__notify_toast__.appendChild(elem);
         // If the paper-toast is closed, opens it.
         if(!this.$.__notify_toast__.opened) this.$.__notify_toast__.open();
+        // Return the id of the toast.
+        return id;
+      },
+
+      /**
+      * Close a notify toast.
+      *
+      * @param {!required} id {Number} The id of the toast to close.
+      *
+      * @method closeToast
+      */
+      closeToast: function(id){
+        this._onDeleteNotificationClick(null, id);
       },
 
       /**
